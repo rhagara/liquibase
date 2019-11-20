@@ -65,6 +65,16 @@ public class DatabaseChangeLog implements Comparable<DatabaseChangeLog>, Conditi
 
     private LabelExpression includeLabels;
     private boolean includeIgnore;
+    
+    private String proxySchema;
+    
+    public void setProxySchema(String proxySchema) {
+      this.proxySchema = proxySchema;
+    }
+
+    public String getProxySchema() {
+      return this.proxySchema;
+    }
 
     public DatabaseChangeLog() {
     }
@@ -336,7 +346,9 @@ public class DatabaseChangeLog implements Comparable<DatabaseChangeLog>, Conditi
         String nodeName = node.getName();
         switch (nodeName) {
             case"changeSet":
-            if (isDbmsMatch(node.getChildValue(null, "dbms", String.class))) {this.addChangeSet(createChangeSet(node, resourceAccessor));}
+            if (isDbmsMatch(node.getChildValue(null, "dbms", String.class))) {
+              this.addChangeSet(createChangeSet(node, resourceAccessor));
+            }
         break;
             case"include": {
             String path = node.getChildValue(null, "file", String.class);
@@ -347,14 +359,20 @@ public class DatabaseChangeLog implements Comparable<DatabaseChangeLog>, Conditi
             ContextExpression includeContexts = new ContextExpression(node.getChildValue(null, "context", String.class));
             LabelExpression labelExpression = new LabelExpression(node.getChildValue(null, "labels", String.class));
             Boolean ignore = node.getChildValue(null, "ignore", Boolean.class);
+            
+            //rh+
+            Boolean relative    = node.getChildValue(null, "relativeToChangelogFile", false);
+            String proxySchema = node.getChildValue(null, "schema", String.class);
+            
             try {
                 include(path,
-                        node.getChildValue(null, "relativeToChangelogFile", false),
+                        relative,
                         resourceAccessor,
                         includeContexts,
                         labelExpression,
                         ignore,
-                        true);
+                        true,
+                        proxySchema);
             } catch (LiquibaseException e) {
                 throw new SetupException(e);}
                 break;
@@ -525,7 +543,7 @@ public class DatabaseChangeLog implements Comparable<DatabaseChangeLog>, Conditi
 
             for (String path : resources) {
                 LogService.getLog(getClass()).info(LogType.LOG, "Reading resource: " + path);
-                include(path, false, resourceAccessor, includeContexts, labelExpression, ignore, false);
+                include(path, false, resourceAccessor, includeContexts, labelExpression, ignore, false, null);
             }
         } catch (Exception e) {
             throw new SetupException(e);
@@ -536,9 +554,11 @@ public class DatabaseChangeLog implements Comparable<DatabaseChangeLog>, Conditi
                            boolean isRelativePath,
                            ResourceAccessor resourceAccessor,
                            ContextExpression includeContexts,
-                           LabelExpression labelExpression,
+                           LabelExpression labelExpression,                           
                            Boolean ignore,
-                           boolean logEveryUnknownFileFormat)
+                           boolean logEveryUnknownFileFormat,
+                           String proxySchema
+                           )
             throws LiquibaseException {
 
         if (".svn".equalsIgnoreCase(fileName) || "cvs".equalsIgnoreCase(fileName)) {
@@ -555,6 +575,10 @@ public class DatabaseChangeLog implements Comparable<DatabaseChangeLog>, Conditi
                 fileName = FilenameUtils.getFullPath(relativeBaseFileName) + fileName;
             }
         }
+        
+         LogService.getLog(getClass()).info(LogType.LOG, "..... include: " + "..." + fileName);
+         LogService.getLog(getClass()).info(LogType.LOG, "..... include: " + "..." + proxySchema);
+        
         DatabaseChangeLog changeLog;
         try {
             DatabaseChangeLog rootChangeLog = ROOT_CHANGE_LOG.get();
@@ -569,6 +593,8 @@ public class DatabaseChangeLog implements Comparable<DatabaseChangeLog>, Conditi
                 changeLog.setIncludeContexts(includeContexts);
                 changeLog.setIncludeLabels(labelExpression);
                 changeLog.setIncludeIgnore(ignore != null ? ignore.booleanValue() : false);
+                changeLog.setProxySchema(proxySchema);
+                
             } finally {
                 if (rootChangeLog == null) {
                     ROOT_CHANGE_LOG.remove();
@@ -597,6 +623,8 @@ public class DatabaseChangeLog implements Comparable<DatabaseChangeLog>, Conditi
             this.getPreconditions().addNestedPrecondition(preconditions);
         }
         for (ChangeSet changeSet : changeLog.getChangeSets()) {
+            if (proxySchema != null) 
+              changeSet.setProxySchema(proxySchema);
             addChangeSet(changeSet);
         }
 

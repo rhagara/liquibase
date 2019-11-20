@@ -95,6 +95,140 @@ public class OracleDatabase extends AbstractJdbcDatabase {
             }
         }
     }
+    
+    /*
+    java.util.Properties prop = new java.util.Properties();
+    prop.put(OracleConnection.PROXY_USER_NAME, schema);
+    oracleConnection.openProxySession(OracleConnection.PROXYTYPE_USER_NAME,prop);
+    */
+    public final void openProxySession(final String schemaName/*, final Connection con*/) {
+
+        DatabaseConnection conn = getConnection();
+        Connection sqlConn = null;
+        if (conn instanceof OfflineConnection) {
+          Scope.getCurrentScope().getLog(getClass()).info(LogType.LOG, "01 Could not open proxy session on OracleDatabase: " + schemaName);
+          return;
+        }
+        
+        try {
+            /*
+             * Don't try to call getWrappedConnection if the conn instance is
+             * is not a JdbcConnection. This happens for OfflineConnection.
+             * see https://liquibase.jira.com/browse/CORE-2192
+             */
+            if (conn instanceof JdbcConnection) {
+                sqlConn = ((JdbcConnection) conn).getWrappedConnection();
+            }
+        } catch (Exception e) {
+            throw new UnexpectedLiquibaseException(e);
+        }
+
+        if (sqlConn == null) {
+          Scope.getCurrentScope().getLog(getClass()).info(LogType.LOG, "02 Could not open proxy session on OracleDatabase: " + schemaName);
+          return;
+        }
+                
+        //Matcher m = PROXY_USER.matcher("url");
+        //if (m.matches()) {
+            Properties props = new Properties();
+            props.put("PROXY_USER_NAME", schemaName);
+            try {
+                Method method = sqlConn.getClass().getMethod("openProxySession", int.class, Properties.class);
+                method.setAccessible(true);
+                method.invoke(sqlConn, 1, props);
+                Scope.getCurrentScope().getLog(getClass()).info(LogType.LOG, "DONE :    open proxy session on OracleDatabase: " + schemaName);
+            } catch (Exception e) {
+                Scope.getCurrentScope().getLog(getClass()).info(LogType.LOG, "Could not open proxy session on OracleDatabase: " + e.getCause().getMessage());
+            }
+        //}
+    }
+
+    //oracleConnection.close(OracleConnection.PROXY_SESSION)
+    public final void closeProxySession(/*final Connection con*/) {
+
+        DatabaseConnection conn = getConnection();
+        Connection sqlConn = null;
+        if (conn instanceof OfflineConnection) 
+          return;
+        
+        try {
+            /*
+             * Don't try to call getWrappedConnection if the conn instance is
+             * is not a JdbcConnection. This happens for OfflineConnection.
+             * see https://liquibase.jira.com/browse/CORE-2192
+             */
+            if (conn instanceof JdbcConnection) {
+                sqlConn = ((JdbcConnection) conn).getWrappedConnection();
+            }
+        } catch (Exception e) {
+            throw new UnexpectedLiquibaseException(e);
+        }
+
+        if (sqlConn == null) return;
+                    
+            try {
+                Method method = sqlConn.getClass().getMethod("close", int.class);
+                method.setAccessible(true);
+                method.invoke(sqlConn, 1); //OracleConnection.PROXY_SESSION
+                Scope.getCurrentScope().getLog(getClass()).info(LogType.LOG, "DONE :    close proxy session on OracleDatabase: " + "...");
+            } catch (Exception e) {
+                Scope.getCurrentScope().getLog(getClass()).info(LogType.LOG, "Could not close proxy session on OracleDatabase: " + e.getCause().getMessage());
+            }        
+    }
+    
+/**
+ * Determine two things. First if
+ * connection is an oracle connection
+ * and second if connection is proxy
+ * connection.
+ *
+ * @param conn
+ * @return
+ *
+ * inspired by code Project: qafe-platform   File: DataSourceConnectionFactory.java   
+ * https://www.programcreek.com/java-api-examples/index.php?api=oracle.jdbc.OracleConnection
+ *
+ */
+public final boolean isProxyConnection(/*Connection con*/) {
+    boolean isProxy = false;
+
+    /*
+    if (conn instanceof OracleConnection) {
+        isProxy = ((OracleConnection) conn).isProxySession();
+    }
+    */
+    
+        DatabaseConnection conn = getConnection();
+        Connection sqlConn = null;
+        if (conn instanceof OfflineConnection) 
+          return false;
+        
+        try {
+            /*
+             * Don't try to call getWrappedConnection if the conn instance is
+             * is not a JdbcConnection. This happens for OfflineConnection.
+             * see https://liquibase.jira.com/browse/CORE-2192
+             */
+            if (conn instanceof JdbcConnection) {
+                sqlConn = ((JdbcConnection) conn).getWrappedConnection();
+            }
+        } catch (Exception e) {
+            throw new UnexpectedLiquibaseException(e);
+        }
+
+        if (sqlConn == null) return false;
+    
+            try {
+                Method method = sqlConn.getClass().getMethod("isProxySession");
+                method.setAccessible(true);
+                isProxy = (boolean) method.invoke(sqlConn); //
+            } catch (Exception e) {
+                Scope.getCurrentScope().getLog(getClass()).info(LogType.LOG, "Could not query proxy session on OracleDatabase: " + e.getCause().getMessage());
+            }
+
+    return isProxy;
+}
+     
 
     @Override
     public void setConnection(DatabaseConnection conn) {
@@ -121,6 +255,8 @@ public class OracleDatabase extends AbstractJdbcDatabase {
 
             if (sqlConn != null) {
                 tryProxySessionn(conn.getURL(), sqlConn);
+                
+                LogService.getLog(getClass()).info(LogType.LOG, "PROXY SETUP OracleDatabase: " + "...");
 
                 try {
                     //noinspection HardCodedStringLiteral

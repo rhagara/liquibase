@@ -32,6 +32,11 @@ import liquibase.statement.SqlStatement;
 import liquibase.util.StreamUtil;
 import liquibase.util.StringUtils;
 
+//rh+
+//import liquibase.database.Database;
+import liquibase.database.core.OracleDatabase;
+
+
 import java.awt.*;
 import java.util.*;
 import java.util.List;
@@ -205,6 +210,17 @@ public class ChangeSet implements Conditional, ChangeLogChild {
 
     private Map<String, Object> attributes = new HashMap<>();
 
+    private String proxySchema;
+    
+    public void setProxySchema(String proxySchema) {
+      if (this.proxySchema == null) 
+        this.proxySchema = proxySchema;
+    }
+
+    public String getProxySchema() {
+      return this.proxySchema;
+    }
+    
     public boolean shouldAlwaysRun() {
         return alwaysRun;
     }
@@ -288,6 +304,9 @@ public class ChangeSet implements Conditional, ChangeLogChild {
         this.created = node.getChildValue(null, "created", String.class);
         this.runOrder = node.getChildValue(null, "runOrder", String.class);
         this.ignore = node.getChildValue(null, "ignore", false);
+        
+        this.proxySchema = node.getChildValue(null, "schema", String.class);
+        
         this.comments = StringUtils.join(node.getChildren(null, "comment"), "\n", new StringUtils.StringUtilsFormatter() {
             @Override
             public String toString(Object obj) {
@@ -587,6 +606,18 @@ public class ChangeSet implements Conditional, ChangeLogChild {
             }
 
             if (!skipChange) {
+              
+                //rh+ proxy
+                LogService.getLog(getClass()).info(LogType.LOG, "ChgSet.exe..... before OPEN OracleDatabase: " + "..." + this.getProxySchema());
+                LogService.getLog(getClass()).info(LogType.LOG, "ChgSet.exe..... before OPEN OracleDatabase: " + "..." + this.getFilePath());
+                            
+                //Database database = env.getTargetDatabase();
+                if (this.getProxySchema() != null) {
+                  ((OracleDatabase)database).openProxySession( this.getProxySchema() );
+                  LogService.getLog(getClass()).info(LogType.LOG, "ChgSet.exe.PROXY OPEN OracleDatabase: " + "..." + this.getProxySchema());
+                }
+                //rh+ proxy
+              
                 for (Change change : changes) {
                     try {
                         change.finishInitialization();
@@ -618,6 +649,11 @@ public class ChangeSet implements Conditional, ChangeLogChild {
 
                 if (runInTransaction) {
                     database.commit();
+                    
+                    if (this.getProxySchema() != null && ((OracleDatabase)database).isProxyConnection()) {
+                      ((OracleDatabase)database).closeProxySession();                  
+                    }                            
+                    
                 }
                 log.info(LogType.LOG, "ChangeSet " + toString(false) + " ran successfully in " + (new Date().getTime() - startTime + "ms"));
                 if (execType == null) {
@@ -630,6 +666,11 @@ public class ChangeSet implements Conditional, ChangeLogChild {
         } catch (Exception e) {
             try {
                 database.rollback();
+                
+                if (this.getProxySchema() != null && ((OracleDatabase)database).isProxyConnection()) {
+                  ((OracleDatabase)database).closeProxySession();                  
+                }                            
+                
             } catch (Exception e1) {
                 throw new MigrationFailedException(this, e);
             }
@@ -654,9 +695,11 @@ public class ChangeSet implements Conditional, ChangeLogChild {
                     database.setAutoCommit(false);
                 } catch (DatabaseException e) {
                     throw new MigrationFailedException(this, "Could not resetInternalState autocommit", e);
-                }
+                }                
             }
+            
         }
+                
         return execType;
     }
 
