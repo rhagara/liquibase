@@ -649,12 +649,12 @@ public class ChangeSet implements Conditional, ChangeLogChild {
 
                 if (runInTransaction) {
                     database.commit();
-                    
-                    if (this.getProxySchema() != null && ((OracleDatabase)database).isProxyConnection()) {
-                      ((OracleDatabase)database).closeProxySession();                  
-                    }                            
-                    
                 }
+                //rh+ proxy
+                if (this.getProxySchema() != null && ((OracleDatabase)database).isProxyConnection()) {
+                  ((OracleDatabase)database).closeProxySession();                  
+                }   
+                
                 log.info(LogType.LOG, "ChangeSet " + toString(false) + " ran successfully in " + (new Date().getTime() - startTime + "ms"));
                 if (execType == null) {
                     execType = ExecType.EXECUTED;
@@ -666,10 +666,10 @@ public class ChangeSet implements Conditional, ChangeLogChild {
         } catch (Exception e) {
             try {
                 database.rollback();
-                
+                //rh+ proxy
                 if (this.getProxySchema() != null && ((OracleDatabase)database).isProxyConnection()) {
                   ((OracleDatabase)database).closeProxySession();                  
-                }                            
+                }   
                 
             } catch (Exception e1) {
                 throw new MigrationFailedException(this, e);
@@ -744,6 +744,18 @@ public class ChangeSet implements Conditional, ChangeLogChild {
                     }
                 }
                 if (!statements.isEmpty()) {
+                  
+                    //rh+ proxy
+                    LogService.getLog(getClass()).info(LogType.LOG, "ChgSet.exe..... before OPEN OracleDatabase: " + "..." + this.getProxySchema());
+                    LogService.getLog(getClass()).info(LogType.LOG, "ChgSet.exe..... before OPEN OracleDatabase: " + "..." + this.getFilePath());
+                                
+                    //Database database = env.getTargetDatabase();
+                    if (this.getProxySchema() != null) {
+                      ((OracleDatabase)database).openProxySession( this.getProxySchema() );
+                      LogService.getLog(getClass()).info(LogType.LOG, "ChgSet.exe.PROXY OPEN OracleDatabase: " + "..." + this.getProxySchema());
+                    }
+                    //rh+ proxy
+                  
                     database.executeRollbackStatements(statements.toArray(new SqlStatement[]{}), sqlVisitors);
                 }
 
@@ -758,10 +770,19 @@ public class ChangeSet implements Conditional, ChangeLogChild {
             if (runInTransaction) {
                 database.commit();
             }
+            //rh+ proxy
+            if (this.getProxySchema() != null && ((OracleDatabase)database).isProxyConnection()) {
+              ((OracleDatabase)database).closeProxySession();                  
+            }   
+            
             log.debug(LogType.LOG, "ChangeSet " + toString() + " has been successfully rolled back.");
         } catch (Exception e) {
             try {
                 database.rollback();
+                //rh+ proxy
+                if (this.getProxySchema() != null && ((OracleDatabase)database).isProxyConnection()) {
+                  ((OracleDatabase)database).closeProxySession();                  
+                }   
             } catch (DatabaseException e1) {
                 //ok
             }
