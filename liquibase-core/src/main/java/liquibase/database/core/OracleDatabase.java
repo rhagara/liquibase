@@ -81,6 +81,52 @@ public class OracleDatabase extends AbstractJdbcDatabase {
         return PRIORITY_DEFAULT;
     }
 
+    //select sys_context( 'userenv', 'current_schema' ) from dual;
+    public String getCurrentSchema(final String schemaName) {
+      
+        Statement stmt = null;
+        ResultSet rs = null;      
+        try {
+            stmt = ((JdbcConnection) getConnection()).createStatement();
+            rs = stmt.executeQuery("select sys_context( 'userenv', 'current_schema' ) from dual");
+            if (rs.next()) {
+                String result = rs.getString(1);
+                if (result != null) {
+                    this.defaultSchemaName = StringUtils.trimToNull(result);
+                } else {
+                    //rh? this.defaultSchemaName = StringUtils.trimToNull(super.getDefaultSchemaName());
+                    ;
+                }
+            }
+        } catch (Exception e) {            
+            Scope.getCurrentScope().getLog(getClass()).info(LogType.LOG, "Could not determine current schema on OracleDatabase: " + e.getCause().getMessage()); 
+            throw new UnexpectedLiquibaseException(e);
+        } finally {
+            JdbcUtils.close(rs, stmt);
+        }
+
+        return defaultSchemaName;
+    }
+    
+    //ALTER SESSION SET CURRENT_SCHEMA=<schema>;
+    public void setCurrentSchema(final String schemaName) {
+      
+        Statement stmt = null;
+        try {
+            stmt = ((JdbcConnection) getConnection()).createStatement();
+            Boolean ret = stmt.execute("ALTER SESSION SET CURRENT_SCHEMA="+schemaName);
+            if (ret) {
+              this.defaultSchemaName = schemaName;
+            }
+        } catch (Exception e) {            
+            Scope.getCurrentScope().getLog(getClass()).info(LogType.LOG, "Could not set current schema on OracleDatabase: " + e.getCause().getMessage()); 
+            throw new UnexpectedLiquibaseException(e);
+        } finally {
+            JdbcUtils.closeStatement(stmt);
+        }
+        return ;
+    }
+        
     private final void tryProxySessionn(final String url, final Connection con) {
         Matcher m = PROXY_USER.matcher(url);
         if (m.matches()) {
@@ -95,13 +141,13 @@ public class OracleDatabase extends AbstractJdbcDatabase {
             }
         }
     }
-    
+        
     /*
     java.util.Properties prop = new java.util.Properties();
     prop.put(OracleConnection.PROXY_USER_NAME, schema);
     oracleConnection.openProxySession(OracleConnection.PROXYTYPE_USER_NAME,prop);
     */
-    public final void openProxySession(final String schemaName/*, final Connection con*/) {
+    public final void openProxySession(final String schemaName) {
 
         DatabaseConnection conn = getConnection();
         Connection sqlConn = null;
@@ -135,7 +181,7 @@ public class OracleDatabase extends AbstractJdbcDatabase {
             try {
                 Method method = sqlConn.getClass().getMethod("openProxySession", int.class, Properties.class);
                 method.setAccessible(true);
-                method.invoke(sqlConn, 1, props);
+                method.invoke(sqlConn, 1, props);                
                 Scope.getCurrentScope().getLog(getClass()).info(LogType.LOG, "DONE :    open proxy session on OracleDatabase: " + schemaName);
             } catch (Exception e) {
                 Scope.getCurrentScope().getLog(getClass()).info(LogType.LOG, "Could not open proxy session on OracleDatabase: " + e.getCause().getMessage());
@@ -173,6 +219,7 @@ public class OracleDatabase extends AbstractJdbcDatabase {
                 Scope.getCurrentScope().getLog(getClass()).info(LogType.LOG, "DONE :    close proxy session on OracleDatabase: " + "...");
             } catch (Exception e) {
                 Scope.getCurrentScope().getLog(getClass()).info(LogType.LOG, "Could not close proxy session on OracleDatabase: " + e.getCause().getMessage());
+                
             }        
     }
     
@@ -189,7 +236,7 @@ public class OracleDatabase extends AbstractJdbcDatabase {
  * https://www.programcreek.com/java-api-examples/index.php?api=oracle.jdbc.OracleConnection
  *
  */
-public final boolean isProxyConnection(/*Connection con*/) {
+public final boolean isProxyConnection() {
     boolean isProxy = false;
 
     /*

@@ -608,13 +608,12 @@ public class ChangeSet implements Conditional, ChangeLogChild {
             if (!skipChange) {
               
                 //rh+ proxy
-                LogService.getLog(getClass()).info(LogType.LOG, "ChgSet.exe..... before OPEN OracleDatabase: " + "..." + this.getProxySchema());
-                LogService.getLog(getClass()).info(LogType.LOG, "ChgSet.exe..... before OPEN OracleDatabase: " + "..." + this.getFilePath());
-                            
-                //Database database = env.getTargetDatabase();
-                if (this.getProxySchema() != null) {
+                if (this.getProxySchema() != null 
+                 && database.getDatabaseProductName().equalsIgnoreCase("Oracle")) 
+                {
+                  LogService.getLog(getClass()).info(LogType.LOG, "ChgSet.execute.PROXY OPEN OracleDatabase: " + "..." + this.getProxySchema());
+                  LogService.getLog(getClass()).info(LogType.LOG, "ChgSet.execute.PROXY OPEN OracleDatabase: " + "..." + this.getFilePath());
                   ((OracleDatabase)database).openProxySession( this.getProxySchema() );
-                  LogService.getLog(getClass()).info(LogType.LOG, "ChgSet.exe.PROXY OPEN OracleDatabase: " + "..." + this.getProxySchema());
                 }
                 //rh+ proxy
               
@@ -651,7 +650,7 @@ public class ChangeSet implements Conditional, ChangeLogChild {
                     database.commit();
                 }
                 //rh+ proxy
-                if (this.getProxySchema() != null && ((OracleDatabase)database).isProxyConnection()) {
+                if (this.getProxySchema() != null && database.getDatabaseProductName().equalsIgnoreCase("Oracle") && ((OracleDatabase)database).isProxyConnection()) {
                   ((OracleDatabase)database).closeProxySession();                  
                 }   
                 
@@ -667,7 +666,7 @@ public class ChangeSet implements Conditional, ChangeLogChild {
             try {
                 database.rollback();
                 //rh+ proxy
-                if (this.getProxySchema() != null && ((OracleDatabase)database).isProxyConnection()) {
+                if (this.getProxySchema() != null && database.getDatabaseProductName().equalsIgnoreCase("Oracle") && ((OracleDatabase)database).isProxyConnection()) {
                   ((OracleDatabase)database).closeProxySession();                  
                 }   
                 
@@ -746,13 +745,10 @@ public class ChangeSet implements Conditional, ChangeLogChild {
                 if (!statements.isEmpty()) {
                   
                     //rh+ proxy
-                    LogService.getLog(getClass()).info(LogType.LOG, "ChgSet.exe..... before OPEN OracleDatabase: " + "..." + this.getProxySchema());
-                    LogService.getLog(getClass()).info(LogType.LOG, "ChgSet.exe..... before OPEN OracleDatabase: " + "..." + this.getFilePath());
-                                
-                    //Database database = env.getTargetDatabase();
-                    if (this.getProxySchema() != null) {
+                    if (this.getProxySchema() != null && database.getDatabaseProductName().equalsIgnoreCase("Oracle")) {
+                      LogService.getLog(getClass()).info(LogType.LOG, "ChgSet.rollback.PROXY OPEN OracleDatabase: " + "..." + this.getProxySchema());
+                      LogService.getLog(getClass()).info(LogType.LOG, "ChgSet.rollback.PROXY OPEN OracleDatabase: " + "..." + this.getFilePath());
                       ((OracleDatabase)database).openProxySession( this.getProxySchema() );
-                      LogService.getLog(getClass()).info(LogType.LOG, "ChgSet.exe.PROXY OPEN OracleDatabase: " + "..." + this.getProxySchema());
                     }
                     //rh+ proxy
                   
@@ -771,7 +767,7 @@ public class ChangeSet implements Conditional, ChangeLogChild {
                 database.commit();
             }
             //rh+ proxy
-            if (this.getProxySchema() != null && ((OracleDatabase)database).isProxyConnection()) {
+            if (this.getProxySchema() != null && database.getDatabaseProductName().equalsIgnoreCase("Oracle") && ((OracleDatabase)database).isProxyConnection()) {
               ((OracleDatabase)database).closeProxySession();                  
             }   
             
@@ -780,7 +776,7 @@ public class ChangeSet implements Conditional, ChangeLogChild {
             try {
                 database.rollback();
                 //rh+ proxy
-                if (this.getProxySchema() != null && ((OracleDatabase)database).isProxyConnection()) {
+                if (this.getProxySchema() != null && database.getDatabaseProductName().equalsIgnoreCase("Oracle") && ((OracleDatabase)database).isProxyConnection()) {
                   ((OracleDatabase)database).closeProxySession();                  
                 }   
             } catch (DatabaseException e1) {
