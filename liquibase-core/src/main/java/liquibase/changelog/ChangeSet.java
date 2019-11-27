@@ -707,6 +707,8 @@ public class ChangeSet implements Conditional, ChangeLogChild {
     }
 
     public void rollback(Database database, ChangeExecListener listener) throws RollbackFailedException {
+        
+        long startTime = new Date().getTime();
         try {
             Executor executor = ExecutorService.getInstance().getExecutor(database);
             executor.comment("Rolling Back ChangeSet: " + toString());
@@ -753,6 +755,7 @@ public class ChangeSet implements Conditional, ChangeLogChild {
                     //rh+ proxy
                   
                     database.executeRollbackStatements(statements.toArray(new SqlStatement[]{}), sqlVisitors);
+                    
                 }
 
             } else {
@@ -772,6 +775,9 @@ public class ChangeSet implements Conditional, ChangeLogChild {
             }   
             
             log.debug(LogType.LOG, "ChangeSet " + toString() + " has been successfully rolled back.");
+            
+            log.info(LogType.LOG, "ChangeSet " + toString(false) + " rollbacked successfully in " + (new Date().getTime() - startTime + "ms"));
+            
         } catch (Exception e) {
             try {
                 database.rollback();

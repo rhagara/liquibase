@@ -379,6 +379,10 @@ public class DatabaseChangeLog implements Comparable<DatabaseChangeLog>, Conditi
             }
             case "includeAll": {
                 String path = node.getChildValue(null, "path", String.class);
+                
+                //rh+
+                String proxySchema = node.getChildValue(null, "schema", String.class);
+                
                 String resourceFilterDef = node.getChildValue(null, "filter", String.class);
                 if (resourceFilterDef == null) {
                     resourceFilterDef = node.getChildValue(null, "resourceFilter", String.class);
@@ -419,7 +423,8 @@ public class DatabaseChangeLog implements Comparable<DatabaseChangeLog>, Conditi
                        resourceAccessor,
                        includeContexts,
                        labelExpression,
-                       ignore);
+                       ignore,
+                       proxySchema);
                 break;
             }
             case "preConditions": {
@@ -500,7 +505,8 @@ public class DatabaseChangeLog implements Comparable<DatabaseChangeLog>, Conditi
                            ResourceAccessor resourceAccessor,
                            ContextExpression includeContexts,
                            LabelExpression labelExpression,
-                           boolean ignore)
+                           boolean ignore,
+                           String proxySchema)
             throws SetupException {
         try {
             if (pathName == null) {
@@ -543,7 +549,7 @@ public class DatabaseChangeLog implements Comparable<DatabaseChangeLog>, Conditi
 
             for (String path : resources) {
                 LogService.getLog(getClass()).info(LogType.LOG, "Reading resource: " + path);
-                include(path, false, resourceAccessor, includeContexts, labelExpression, ignore, false, null);
+                include(path, false, resourceAccessor, includeContexts, labelExpression, ignore, false, proxySchema);
             }
         } catch (Exception e) {
             throw new SetupException(e);
